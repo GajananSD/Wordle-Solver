@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Word Guessing Game</title>
+<style>
+  /* Basic styling */
+  body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  h1 {
+    color: #634caf;
+    margin-bottom: 20px;
+    font-size: 36px;
+  }
+  
+  .word-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+    gap: 10px;
+  }
+  
+  .letter-block {
+    width: 50px;
+    height: 50px;
+    border: 2px solid #333;
+    margin: 5px;
+    font-size: 24px;
+    line-height: 50px;
+    text-align: center;
+    background-color: #fff;
+    transition: background-color 0.3s ease-in-out;
+  }
+  
+  .color-select-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+  
+  .color-select {
+    padding: 5px;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .color-select:focus {
+    border-color: #4CAF50;
+  }
+  
+  button {
+  padding: 8px 16px;
+  font-size: 14px;
+  background-color: lightblue;
+  color: black;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  width: 120px; /* Set a fixed width */
+  margin: 20px auto; /* Centers the button horizontally */
+  display: inline-block;
+  text-align: center;
+  }
+
+  button:hover {
+  background-color: #87CEEB; /* Slightly darker light blue */
+  }
+
+  #run-again-button {
+  display: none; /* Initially hidden */
+  margin-top: 20px;
+  }
+  
+  #result {
+    margin-top: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #FF6347; /* Tomato color for result */
+  }
+  
+  
+  #user-input-section {
+    display: none; /* Initially hidden */
+    margin-top: 20px;
+  }
+  
+  #user-input-section input {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    outline: none;
+  }
+  
+  #user-input-section button {
+    margin-left: 10px;
+  }
+  
+  @media (max-width: 600px) {
+    .word-container {
+      flex-direction: column;
+    }
+    .color-select-container {
+      flex-direction: column;
+      gap: 10px;
+    }
+  }
+  </style>
+</head>
+<body>
+
+<h1>GUESS THE WORD</h1>
+
+<div class="word-container" id="wordContainer"></div>
+
+<div class="color-select-container" id="colorSelectContainer"></div>
+
+<button onclick="submitGuess()">Submit</button>
+
+<div id="result"></div>
+<button id="run-again-button" onclick="runAgain()">Run Again</button>
+
+<div id="user-input-section">
+  <input type="text" id="user-input" placeholder="Enter a 5-letter word" maxlength="5">
+  <button onclick="submitUserWord()">Submit Word</button>
+</div>
+
+<script>
+// Get the word dynamically from Python
+let currentWord = "{{ word }}"; // Using Jinja template variable
+
+function initializeGame(word) {
+  currentWord = word.toUpperCase();
+  const wordContainer = document.getElementById("wordContainer");
+  const colorSelectContainer = document.getElementById("colorSelectContainer");
+
+  wordContainer.innerHTML = "";
+  colorSelectContainer.innerHTML = "";
+
+  for (let i = 0; i < currentWord.length; i++) {
+    const letterBlock = document.createElement("div");
+    letterBlock.classList.add("letter-block");
+    letterBlock.textContent = currentWord[i];
+    wordContainer.appendChild(letterBlock);
+
+    const colorSelect = document.createElement("select");
+    colorSelect.classList.add("color-select");
+    colorSelect.innerHTML = ` 
+      <option value="">Select</option>
+      <option value="green">Green</option>
+      <option value="orange">Orange</option>
+      <option value="grey">Grey</option>
+    `;
+
+    // Update letter block color when color is selected
+    colorSelect.addEventListener("change", function () {
+      letterBlock.style.backgroundColor = this.value;
+    });
+
+    colorSelectContainer.appendChild(colorSelect);
+  }
+}
+
+function submitGuess() {
+  const selectedColors = [];
+  const colorSelects = document.querySelectorAll(".color-select");
+  colorSelects.forEach(select => selectedColors.push(select.value));
+
+  // Basic client-side validation (check if all colors are selected)
+  if (selectedColors.includes("")) {
+    alert("Please select a color for each letter.");
+    return;
+  }
+
+  // Send data to Python backend (using fetch API)
+  fetch('/submit_guess', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ word: currentWord, colors: selectedColors })
+  })
+  .then(response => response.json())
+  .then(data => {
+    const resultDiv = document.getElementById("result");
+    resultDiv.textContent = data.result;
+    
+    if (data.all_green) {
+      // Show the "Run Again" button
+      document.getElementById("run-again-button").style.display = "block";
+    } else if (data.show_user_input) {
+      // Show the user input section
+      document.getElementById("user-input-section").style.display = "block";
+    } else {
+      // Reinitialize the game with the next word
+      initializeGame(data.next_word);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert("An error occurred. Please try again later.");
+  });
+}
+
+function submitUserWord() {
+  const userWord = document.getElementById("user-input").value.toUpperCase();
+  if (userWord.length !== 5) {
+    alert("Please enter a 5-letter word.");
+    return;
+  }
+
+  // Send the user's word to the backend
+  fetch('/submit_user_word', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ word: userWord })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert("Word submitted successfully!");
+      location.reload(); // Reload the page to restart the game
+    } else {
+      alert("Failed to submit word. Please try again.");
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert("An error occurred. Please try again later.");
+  });
+}
+
+function runAgain() {
+  // Reload the page to restart the game
+  location.reload();
+}
+
+// Initialize the game with the word from Python
+initializeGame(currentWord); 
+</script>
+
+</body>
+</html>
