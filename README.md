@@ -12,7 +12,7 @@ A Python-based Wordle solver that intelligently narrows down possible words usin
 3. **Suggests the best possible guess** using an optimized strategy.  
 
 ## 📘 Documentation  
-Check out [Wordle Finder.pdf](Wordle-Solver/Algorithm/Wordle%20Finder.pdf) for:  
+Check out [Document](https://github.com/GajananSD/Wordle-Solver/blob/main/Algorithm/Wordle%20Finder.pdf) for:  
 - The mathematical model behind the solver.  
 - Application workflow and logic.  
 - Word filtering and scoring techniques.
