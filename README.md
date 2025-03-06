@@ -1,2 +1,7 @@
-📄 Wordle Solver: Algorithm & Application Overview [https://github.com/GajananSD/Wordle-Solver/blob/main/Algorithm/Wordle%20Finder.pdf]
+📘 [Wordle Solver Documentation](https://github.com/GajananSD/Wordle-Solver/blob/main/Algorithm/Wordle%20Finder.pdf)
+🔹 Word Analysis
+🔹 Mathematical Model
+🔹 Strategy
+🔹 Application Workflow
+
 
