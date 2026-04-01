@@ -214,6 +214,11 @@ def submit_user_word():
     except OSError as exc:
         return jsonify({"success": False, "message": str(exc)})
 
+@app.route("/reset", methods=["POST"])
+def reset():
+    """Reset all solver state and return the first seed word."""
+    _reset_state()
+    return jsonify({"first_word": INITIAL_GUESSES[0]})
 
 # ---------------------------------------------------------------------------
 # Entry point
