@@ -1,129 +1,212 @@
-from flask import Flask, render_template, request, jsonify
+"""
+app.py
+------
+Flask application for the Wordle Solver.
+
+Routes
+------
+GET  /                  – Render the main game page.
+
+POST /submit_guess      – Accept a guessed word with its tile colours and
+                          return the next suggested word.
+                          
+POST /submit_user_word  – Accept a user-supplied word and persist it to the
+                          word database.
+"""
+
+from flask import Flask, jsonify, render_template, request
+
 from word_sort import word_sorting
 
 app = Flask(__name__)
 
-# Set the word to be guessed (this can be dynamic or selected randomly)
-Initial_guess = ["riots", "candy", "plume"]
-current_word_index = 0  # Global index to keep track of the current word
-sorted_list = []
-# Dictionaries and list to store color information (persist across guesses)
-green_dict = {}  # {letter: [positions]}
-orange_dict = {}  # {letter: [positions]}
-gray_list = []  # [letters]
+# ---------------------------------------------------------------------------
+# Initial seed guesses presented to the user before the solver takes over.
+# ---------------------------------------------------------------------------
+INITIAL_GUESSES = ["riots", "candy", "plume"]
+
+# ---------------------------------------------------------------------------
+# Session state (module-level globals, reset on each page load).
+# ---------------------------------------------------------------------------
+current_word_index: int = 0
+sorted_list: list = []
+
+green_dict: dict = {}   # {letter: [positions]}  – correct letter, correct spot
+orange_dict: dict = {}  # {letter: [positions]}  – correct letter, wrong spot
+gray_list: list = []    # [letters]               – letter not in word
 
 
-@app.route('/')
-def index():
+def _reset_state() -> None:
+    """Reset all solver state to its initial values."""
     global current_word_index, green_dict, orange_dict, gray_list, sorted_list
+    current_word_index = 0
     green_dict = {}
     orange_dict = {}
     gray_list = []
     sorted_list = []
-    current_word_index = 0  # Reset the index when the page is loaded
-    return render_template('index.html',
-                           word=Initial_guess[current_word_index])
 
 
-@app.route('/submit_guess', methods=['POST'])
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+@app.route("/")
+def index():
+    """Render the game page and reset solver state."""
+    _reset_state()
+    return render_template("index.html", word=INITIAL_GUESSES[current_word_index])
+
+
+@app.route("/submit_guess", methods=["POST"])
 def submit_guess():
+    """
+    Process the player's colour feedback for the current guess.
+
+    Expected JSON body
+    ------------------
+    {
+        "word":   "<five-letter word>",
+        "colors": ["green" | "orange" | "grey", ...]   # one entry per letter
+    }
+
+    Returns
+    -------
+    JSON response containing:
+    - result        : status message shown to the user
+    - next_word     : next word to guess, or null
+    - all_green     : true when the word has been solved
+    - show_user_input : true when the user must supply a missing word
+    """
     global current_word_index, green_dict, orange_dict, gray_list, sorted_list
+
     data = request.get_json()
-    guessed_word = data.get('word')
-    guessed_colors = data.get('colors')
-    # Process the guessed colors
+    guessed_word: str = data.get("word", "")
+    guessed_colors: list = data.get("colors", [])
+
+    # ------------------------------------------------------------------ #
+    # Update colour dictionaries from this round's feedback.              #
+    # ------------------------------------------------------------------ #
     for index, color in enumerate(guessed_colors):
         letter = guessed_word[index].lower()
-        if color == "green":
-            if letter not in green_dict:
-                green_dict[letter] = []
-            if index not in green_dict[letter]:  # Avoid duplicate positions
-                green_dict[letter].append(index)
-        elif color == "orange":
-            if letter not in orange_dict:
-                orange_dict[letter] = []
-            if index not in orange_dict[letter]:  # Avoid duplicate positions
-                orange_dict[letter].append(index)
-        elif color == "grey":
-            if letter not in gray_list:
-                gray_list.append(letter)
 
-    # Check if all blocks are green
+        if color == "green":
+            green_dict.setdefault(letter, [])
+            if index not in green_dict[letter]:
+                green_dict[letter].append(index)
+
+        elif color == "orange":
+            orange_dict.setdefault(letter, [])
+            if index not in orange_dict[letter]:
+                orange_dict[letter].append(index)
+
+        elif color == "grey":
+            # Only add to gray_list if the letter has no confirmed positions.
+            if letter not in green_dict and letter not in orange_dict:
+                if letter not in gray_list:
+                    gray_list.append(letter)
+
+    # ------------------------------------------------------------------ #
+    # Determine the response.                                             #
+    # ------------------------------------------------------------------ #
     all_green = all(color == "green" for color in guessed_colors)
-    # Move to the next word or end the game
+
     if all_green:
         response = {
-            "result": " Guessed the correct word!!! ",
+            "result": "Guessed the correct word!!!",
             "next_word": None,
             "all_green": True,
-            "show_user_input": False
+            "show_user_input": False,
         }
-    else:
-        current_word_index += 1
-        if current_word_index < len(Initial_guess):
-            next_word = Initial_guess[current_word_index]
+        return jsonify(response)
+
+    current_word_index += 1
+
+    # Still within the pre-defined seed guesses.
+    if current_word_index < len(INITIAL_GUESSES):
+        response = {
+            "result": "Check above guess",
+            "next_word": INITIAL_GUESSES[current_word_index],
+            "all_green": False,
+            "show_user_input": False,
+        }
+        return jsonify(response)
+
+    # Hand off to the word-sorting solver (up to 5 total attempts).
+    if current_word_index <= 5:
+        next_word, sorted_list = word_sorting(
+            gray_list, green_dict, orange_dict, sorted_list
+        )
+
+        if next_word == "Not available in db":
+            response = {
+                "result": (
+                    "Word not present in database. "
+                    "Please enter that 5-letter word."
+                ),
+                "next_word": None,
+                "all_green": False,
+                "show_user_input": True,
+            }
+        else:
             response = {
                 "result": "Check above guess",
                 "next_word": next_word,
                 "all_green": False,
-                "show_user_input": False
+                "show_user_input": False,
             }
-        elif current_word_index <= 5:
-            next_word, sorted_list = word_sorting(gray_list, green_dict,
-                                                  orange_dict, sorted_list)
-            if next_word == 'Not available in db':
-                response = {
-                    "result":
-                    "Word not present in Database. Please enter that 5-letter word.",
-                    "next_word": None,
-                    "all_green": False,
-                    "show_user_input": True
-                }
-            else:
-                response = {
-                    "result": "Check above guess",
-                    "next_word": next_word,
-                    "all_green": False,
-                    "show_user_input": False
-                }
-        else:
-            response = {
-                "result":
-                "Word not present in Database\nPlease enter that 5-letter word.",
-                "next_word": None,
-                "all_green": False,
-                "show_user_input": True
-            }
+        return jsonify(response)
+
+    # Exceeded maximum attempts without finding the word.
+    response = {
+        "result": (
+            "Word not present in database.\n"
+            "Please enter that 5-letter word."
+        ),
+        "next_word": None,
+        "all_green": False,
+        "show_user_input": True,
+    }
     return jsonify(response)
 
 
-@app.route('/submit_user_word', methods=['POST'])
+@app.route("/submit_user_word", methods=["POST"])
 def submit_user_word():
+    """
+    Persist a user-supplied word to the word database.
+
+    Expected JSON body
+    ------------------
+    { "word": "<five-letter word>" }
+
+    Returns
+    -------
+    JSON response with ``success`` (bool) and an optional ``message`` string.
+    """
     data = request.get_json()
-    user_word = data.get('word')
-    # Check if the word is exactly 5 letters long
+    user_word: str = data.get("word", "").strip().lower()
+
     if len(user_word) != 5:
-        return jsonify({
-            "success": False,
-            "message": "Word must be 5 letters long."
-        })
-    # Check if the word is already in the file
+        return jsonify({"success": False, "message": "Word must be 5 letters long."})
+
     try:
         with open("words.txt", "r") as file:
             existing_words = file.read().splitlines()
-        if user_word.lower() in existing_words:
-            return jsonify({
-                "success": False,
-                "message": "Word present in database."
-            })
-        # If the word is not present, append it to the file
+
+        if user_word in existing_words:
+            return jsonify({"success": False, "message": "Word already present in database."})
+
         with open("words.txt", "a") as file:
-            file.write(user_word.lower() + "\n")
+            file.write(user_word + "\n")
 
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
+
+    except OSError as exc:
+        return jsonify({"success": False, "message": str(exc)})
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=True)

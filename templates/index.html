@@ -1,261 +1,605 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Word Guessing Game</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wordle Solver</title>
 <style>
-  /* Basic styling */
+  :root {
+    --green:        #6aaa64;
+    --green-hover:  #5b9b56;
+    --green-light:  #eaf6e9;
+    --green-dark:   #27500a;
+    --yellow:       #c9b458;
+    --yellow-light: #fdf8e4;
+    --yellow-dark:  #7a6a1a;
+    --grey-tile:    #787c7e;
+    --ink:          #1a1a18;
+    --ink2:         #55554f;
+    --ink3:         #99998f;
+    --surface:      #ffffff;
+    --page:         #f5f4f0;
+    --border:       rgba(0,0,0,0.09);
+    --border-md:    rgba(0,0,0,0.15);
+    --r-card:       14px;
+    --r-tile:       10px;
+    --r-btn:        9px;
+    --r-sm:         6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
-    font-family: 'Arial', sans-serif;
-    background-color: #f4f4f9;
-    color: #333;
-    text-align: center;
-    margin: 0;
-    padding: 0;
-    height: 100vh;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--page);
+    color: var(--ink);
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    align-items: center;
+    padding: 32px 16px 64px;
   }
-  
-  h1 {
-    color: #634caf;
-    margin-bottom: 20px;
-    font-size: 36px;
-  }
-  
-  .word-container {
+
+  /* ── LOGO ── */
+  .logo {
     display: flex;
-    justify-content: center;
-    margin-bottom: 30px;
-    gap: 10px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    text-decoration: none;
   }
-  
-  .letter-block {
-    width: 50px;
-    height: 50px;
-    border: 2px solid #333;
-    margin: 5px;
-    font-size: 24px;
-    line-height: 50px;
-    text-align: center;
-    background-color: #fff;
-    transition: background-color 0.3s ease-in-out;
+  .logo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 13px);
+    gap: 3px;
   }
-  
-  .color-select-container {
+  .logo-sq {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+  }
+  .logo-text h1 {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .logo-text p {
+    font-size: 12px;
+    color: var(--ink3);
+    margin-top: 2px;
+  }
+
+  /* ── MAIN LAYOUT: left column + right sidebar ── */
+  .page-body {
     display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 30px;
+    align-items: flex-start;
+    gap: 20px;
+    width: 100%;
+    max-width: 860px;
   }
-  
-  .color-select {
-    padding: 5px;
-    font-size: 14px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    outline: none;
+  .main-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--r-card);
+    border: 1px solid var(--border);
+    padding: 22px;
+    width: 100%;
+    max-width: 410px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 16px;
+  }
+
+  /* ── HOW-TO STEPS ── */
+  .steps { display: flex; flex-direction: column; gap: 11px; }
+  .step  { display: flex; gap: 11px; align-items: flex-start; }
+  .step-n {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--green-light);
+    color: var(--green-dark);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step p {
+    font-size: 13.5px;
+    color: var(--ink2);
+    line-height: 1.55;
+  }
+  .step p b { color: var(--ink); font-weight: 600; }
+
+  /* ── COLOR LEGEND ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .leg { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink2); }
+  .leg-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+  /* ── TILES ── */
+  .tiles { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
+  .tile {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--r-tile);
+    border: 2px solid var(--border-md);
+    background: #fafaf8;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 27px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    user-select: none;
+    text-transform: uppercase;
+    color: #ccc;
+    transition:
+      transform 0.13s cubic-bezier(.34,1.56,.64,1),
+      background 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
   }
-  
-  .color-select:focus {
-    border-color: #4CAF50;
+  .tile:hover { transform: scale(1.10); }
+  .tile:active { transform: scale(0.93); }
+  .tile.s1 { background: var(--grey-tile);  border-color: var(--grey-tile);  color: #fff; }
+  .tile.s2 { background: var(--yellow);     border-color: var(--yellow);     color: #fff; }
+  .tile.s3 { background: var(--green);      border-color: var(--green);      color: #fff; }
+
+  /* ── CYCLE HINT ── */
+  .cycle-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--ink3);
+    margin-bottom: 14px;
   }
-  
-  button {
-  padding: 8px 16px;
-  font-size: 14px;
-  background-color: lightblue;
-  color: black;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  width: 120px; /* Set a fixed width */
-  margin: 20px auto; /* Centers the button horizontally */
-  display: inline-block;
-  text-align: center;
+  .csw { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  /* ── BUTTON ROW ── */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
   }
 
-  button:hover {
-  background-color: #87CEEB; /* Slightly darker light blue */
+  /* ── SUBMIT BUTTON ── */
+  .btn-primary {
+    flex: 1;
+    display: block;
+    padding: 15px;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: var(--r-btn);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.1s;
+  }
+  .btn-primary:hover    { background: var(--green-hover); }
+  .btn-primary:active   { transform: scale(0.98); }
+  .btn-primary:disabled { background: #d0cfc8; color: #aaa; cursor: not-allowed; }
+
+  /* ── GOT IT BUTTON ── */
+  .btn-gotit {
+    display: block;
+    padding: 15px 18px;
+    background: #fff;
+    color: var(--green-dark);
+    border: 2px solid var(--green);
+    border-radius: var(--r-btn);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, transform 0.1s;
+  }
+  .btn-gotit:hover  { background: var(--green-light); }
+  .btn-gotit:active { transform: scale(0.97); }
+  .btn-gotit:disabled { border-color: #d0cfc8; color: #aaa; cursor: not-allowed; background: #fff; }
+
+  /* ── RESULT BANNER ── */
+  .result-banner {
+    display: none;
+    width: 100%;
+    max-width: 410px;
+    padding: 13px 18px;
+    border-radius: var(--r-sm);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .result-banner.success {
+    background: var(--green-light);
+    color: var(--green-dark);
+    border: 1px solid #b5ddb2;
+  }
+  .result-banner.info {
+    background: var(--yellow-light);
+    color: var(--yellow-dark);
+    border: 1px solid #e5d280;
+  }
+  .result-banner.error {
+    background: #fef1ef;
+    color: #b53a2a;
+    border: 1px solid #f0b5ac;
   }
 
-  #run-again-button {
-  display: none; /* Initially hidden */
-  margin-top: 20px;
+  /* ── SECONDARY BUTTON ── */
+  .btn-ghost {
+    display: none;
+    width: 100%;
+    max-width: 410px;
+    padding: 13px;
+    background: var(--surface);
+    color: var(--ink2);
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-btn);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.18s, color 0.18s;
+    margin-bottom: 12px;
   }
-  
-  #result {
-    margin-top: 20px;
-    font-size: 20px;
-    font-weight: bold;
-    color: #FF6347; /* Tomato color for result */
-  }
-  
-  
-  #user-input-section {
-    display: none; /* Initially hidden */
-    margin-top: 20px;
-  }
-  
-  #user-input-section input {
-    padding: 10px;
-    font-size: 16px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+  .btn-ghost:hover { border-color: #888; color: var(--ink); }
+
+  /* ── ADD WORD CARD ── */
+  .add-word-card { display: none; }
+  .add-word-card p { font-size: 13px; color: var(--ink3); line-height: 1.55; margin-bottom: 12px; }
+  .input-row { display: flex; gap: 8px; }
+  .word-input {
+    flex: 1;
+    padding: 12px 14px;
+    font-family: 'Georgia', serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: var(--page);
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-sm);
+    color: var(--ink);
     outline: none;
+    transition: border-color 0.18s;
   }
-  
-  #user-input-section button {
-    margin-left: 10px;
+  .word-input::placeholder { color: #ccc; letter-spacing: 2px; font-size: 14px; }
+  .word-input:focus { border-color: var(--green); }
+  .btn-add {
+    padding: 12px 16px;
+    background: var(--surface);
+    color: var(--ink2);
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-sm);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.18s, color 0.18s;
   }
-  
-  @media (max-width: 600px) {
-    .word-container {
+  .btn-add:hover { border-color: var(--green); color: var(--green-dark); }
+
+  /* ── HISTORY SIDEBAR ── */
+  .history-wrap {
+    display: none;
+    width: 180px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 32px;
+  }
+  .history-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hist-row {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-start;
+    margin-bottom: 7px;
+    animation: popIn 0.28s ease;
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: translateY(6px) scale(0.96); }
+    to   { opacity: 1; transform: none; }
+  }
+  .hist-tile {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-transform: uppercase;
+  }
+
+  /* ── RESPONSIVE: stack on small screens ── */
+  @media (max-width: 680px) {
+    .page-body {
       flex-direction: column;
+      align-items: center;
     }
-    .color-select-container {
-      flex-direction: column;
-      gap: 10px;
+    .history-wrap {
+      width: 100%;
+      max-width: 410px;
+      position: static;
     }
+    .hist-row { justify-content: center; }
+    .hist-tile { width: 42px; height: 42px; font-size: 20px; }
+    .tile { width: 54px; height: 54px; font-size: 24px; }
   }
-  </style>
+</style>
 </head>
 <body>
 
-<h1>GUESS THE WORD</h1>
-
-<div class="word-container" id="wordContainer"></div>
-
-<div class="color-select-container" id="colorSelectContainer"></div>
-
-<button onclick="submitGuess()">Submit</button>
-
-<div id="result"></div>
-<button id="run-again-button" onclick="runAgain()">Run Again</button>
-
-<div id="user-input-section">
-  <input type="text" id="user-input" placeholder="Enter a 5-letter word" maxlength="5">
-  <button onclick="submitUserWord()">Submit Word</button>
+<!-- LOGO -->
+<div class="logo">
+  <div class="logo-grid">
+    <div class="logo-sq" style="background:#787c7e"></div>
+    <div class="logo-sq" style="background:#c9b458"></div>
+    <div class="logo-sq" style="background:#6aaa64"></div>
+    <div class="logo-sq" style="background:#6aaa64"></div>
+    <div class="logo-sq" style="background:#787c7e"></div>
+    <div class="logo-sq" style="background:#c9b458"></div>
+  </div>
+  <div class="logo-text">
+    <h1>Wordle Solver</h1>
+    <p>Daily puzzle assistant</p>
+  </div>
 </div>
 
+<!-- PAGE BODY: main col + sidebar -->
+<div class="page-body">
+
+  <!-- LEFT / MAIN COLUMN -->
+  <div class="main-col">
+
+    <!-- HOW TO USE -->
+    <div class="card">
+      <div class="card-title">How to use</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-n">1</div>
+          <p>Open <b>Wordle</b> in your browser and type the word shown below as your guess.</p>
+        </div>
+        <div class="step">
+          <div class="step-n">2</div>
+          <p><b>Click each letter tile</b> to match Wordle's result — once for grey, twice for yellow, three times for green. Or press <b>Got it!</b> if the word was correct.</p>
+        </div>
+        <div class="step">
+          <div class="step-n">3</div>
+          <p>Hit <b>Submit</b> and get your next optimised guess instantly.</p>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#787c7e"></div>Not in word</div>
+        <div class="leg"><div class="leg-dot" style="background:#c9b458"></div>Wrong position</div>
+        <div class="leg"><div class="leg-dot" style="background:#6aaa64"></div>Correct spot</div>
+      </div>
+    </div>
+
+    <!-- GUESS CARD -->
+    <div class="card">
+      <div class="card-title" id="guessCardTitle">Guess 1 — tap tiles to set colors</div>
+      <div class="tiles" id="wordContainer"></div>
+      <div class="cycle-hint">
+        <div class="csw" style="background:#ddd;border:1px solid #bbb"></div>
+        <span>→</span>
+        <div class="csw" style="background:#787c7e"></div>
+        <span>→</span>
+        <div class="csw" style="background:#c9b458"></div>
+        <span>→</span>
+        <div class="csw" style="background:#6aaa64"></div>
+        <span style="margin-left:5px">tap to cycle</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="submitBtn" onclick="submitGuess()">Submit Guess</button>
+        <button class="btn-gotit"   id="gotItBtn"  onclick="gotIt()"     title="Mark all tiles green and submit">✓ Got it!</button>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <div class="result-banner" id="result"></div>
+    <button class="btn-ghost" id="runAgainBtn" onclick="runAgain()">↺ Play again</button>
+
+    <!-- ADD WORD -->
+    <div class="card add-word-card" id="addWordCard">
+      <div class="card-title">Add missing word</div>
+      <p>This word isn't in our database yet. Type it below to add it for future games.</p>
+      <div class="input-row">
+        <input class="word-input" type="text" id="userInput" placeholder="WORD" maxlength="5" autocomplete="off">
+        <button class="btn-add" onclick="submitUserWord()">Add word</button>
+      </div>
+    </div>
+
+  </div><!-- /main-col -->
+
+  <!-- RIGHT SIDEBAR: Guesses so far -->
+  <div class="history-wrap" id="historyWrap">
+    <div class="history-label">Guesses so far</div>
+    <div id="historyContainer"></div>
+  </div>
+
+</div><!-- /page-body -->
+
 <script>
-// Get the word dynamically from Python
-let currentWord = "{{ word }}"; // Using Jinja template variable
+  let currentWord = "{{ word }}";
+  let tileStates  = [];
+  let guessNumber = 1;
 
-function initializeGame(word) {
-  currentWord = word.toUpperCase();
-  const wordContainer = document.getElementById("wordContainer");
-  const colorSelectContainer = document.getElementById("colorSelectContainer");
+  const COLOR_MAP = ['', 'grey', 'orange', 'green'];
+  const TILE_BG   = ['#fafaf8', '#787c7e', '#c9b458', '#6aaa64'];
 
-  wordContainer.innerHTML = "";
-  colorSelectContainer.innerHTML = "";
+  function initGame(word) {
+    currentWord = word.toUpperCase();
+    tileStates  = new Array(currentWord.length).fill(0);
 
-  for (let i = 0; i < currentWord.length; i++) {
-    const letterBlock = document.createElement("div");
-    letterBlock.classList.add("letter-block");
-    letterBlock.textContent = currentWord[i];
-    wordContainer.appendChild(letterBlock);
+    const container = document.getElementById('wordContainer');
+    container.innerHTML = '';
 
-    const colorSelect = document.createElement("select");
-    colorSelect.classList.add("color-select");
-    colorSelect.innerHTML = ` 
-      <option value="">Select</option>
-      <option value="green">Green</option>
-      <option value="orange">Orange</option>
-      <option value="grey">Grey</option>
-    `;
+    for (let i = 0; i < currentWord.length; i++) {
+      const tile = document.createElement('div');
+      tile.className   = 'tile s0';
+      tile.textContent = currentWord[i];
+      tile.addEventListener('click', () => {
+        tileStates[i]  = (tileStates[i] + 1) % 4;
+        tile.className = 'tile s' + tileStates[i];
+      });
+      container.appendChild(tile);
+    }
 
-    // Update letter block color when color is selected
-    colorSelect.addEventListener("change", function () {
-      letterBlock.style.backgroundColor = this.value;
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('gotItBtn').disabled  = false;
+    document.getElementById('guessCardTitle').textContent =
+      'Guess ' + guessNumber + ' — tap tiles to set colors';
+    showResult('', '');
+    document.getElementById('runAgainBtn').style.display = 'none';
+    document.getElementById('addWordCard').style.display  = 'none';
+  }
+
+  function showResult(msg, type) {
+    const el = document.getElementById('result');
+    if (!msg) { el.style.display = 'none'; return; }
+    el.textContent = msg;
+    el.className   = 'result-banner ' + type;
+    el.style.display = 'block';
+  }
+
+  function addHistory(word, states) {
+    document.getElementById('historyWrap').style.display = 'block';
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    for (let i = 0; i < word.length; i++) {
+      const t = document.createElement('div');
+      t.className        = 'hist-tile';
+      t.style.background = TILE_BG[states[i]];
+      t.textContent      = word[i];
+      row.appendChild(t);
+    }
+    document.getElementById('historyContainer').appendChild(row);
+  }
+
+  /* ── GOT IT: mark all tiles green, then submit ── */
+  function gotIt() {
+    // Set all tiles to state 3 (green) visually
+    tileStates = new Array(currentWord.length).fill(3);
+    const tiles = document.getElementById('wordContainer').querySelectorAll('.tile');
+    tiles.forEach(t => { t.className = 'tile s3'; });
+
+    // Small delay so the user sees the flash of green before submission
+    setTimeout(() => submitGuess(), 180);
+  }
+
+  function submitGuess() {
+    if (tileStates.includes(0)) {
+      showResult('Tap every tile to assign a color before submitting.', 'error');
+      return;
+    }
+
+    addHistory(currentWord, [...tileStates]);
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('gotItBtn').disabled  = true;
+
+    fetch('/submit_guess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        word:   currentWord,
+        colors: tileStates.map(s => COLOR_MAP[s])
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.all_green) {
+        showResult('Solved! Great work.', 'success');
+        document.getElementById('runAgainBtn').style.display = 'block';
+      } else if (data.show_user_input) {
+        showResult(data.result, 'info');
+        document.getElementById('addWordCard').style.display = 'block';
+      } else {
+        showResult(data.result, 'info');
+        guessNumber++;
+        initGame(data.next_word);
+      }
+    })
+    .catch(() => {
+      showResult('Connection error — please try again.', 'error');
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('gotItBtn').disabled  = false;
     });
-
-    colorSelectContainer.appendChild(colorSelect);
-  }
-}
-
-function submitGuess() {
-  const selectedColors = [];
-  const colorSelects = document.querySelectorAll(".color-select");
-  colorSelects.forEach(select => selectedColors.push(select.value));
-
-  // Basic client-side validation (check if all colors are selected)
-  if (selectedColors.includes("")) {
-    alert("Please select a color for each letter.");
-    return;
   }
 
-  // Send data to Python backend (using fetch API)
-  fetch('/submit_guess', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ word: currentWord, colors: selectedColors })
-  })
-  .then(response => response.json())
-  .then(data => {
-    const resultDiv = document.getElementById("result");
-    resultDiv.textContent = data.result;
-    
-    if (data.all_green) {
-      // Show the "Run Again" button
-      document.getElementById("run-again-button").style.display = "block";
-    } else if (data.show_user_input) {
-      // Show the user input section
-      document.getElementById("user-input-section").style.display = "block";
-    } else {
-      // Reinitialize the game with the next word
-      initializeGame(data.next_word);
+  function submitUserWord() {
+    const word = document.getElementById('userInput').value;
+    if (word.length !== 5) {
+      showResult('Please enter a valid 5-letter word.', 'error');
+      return;
     }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert("An error occurred. Please try again later.");
-  });
-}
-
-function submitUserWord() {
-  const userWord = document.getElementById("user-input").value.toUpperCase();
-  if (userWord.length !== 5) {
-    alert("Please enter a 5-letter word.");
-    return;
+    fetch('/submit_user_word', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showResult('Word added — restarting…', 'success');
+        setTimeout(() => location.reload(), 1100);
+      } else {
+        showResult(data.message || 'Could not add word.', 'error');
+      }
+    })
+    .catch(() => showResult('Connection error.', 'error'));
   }
 
-  // Send the user's word to the backend
-  fetch('/submit_user_word', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ word: userWord })
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      alert("Word submitted successfully!");
-      location.reload(); // Reload the page to restart the game
-    } else {
-      alert("Failed to submit word. Please try again.");
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert("An error occurred. Please try again later.");
-  });
-}
+  function runAgain() { location.reload(); }
 
-function runAgain() {
-  // Reload the page to restart the game
-  location.reload();
-}
-
-// Initialize the game with the word from Python
-initializeGame(currentWord); 
+  initGame(currentWord);
 </script>
-
 </body>
 </html>
