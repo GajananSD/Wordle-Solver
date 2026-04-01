@@ -15,6 +15,7 @@ POST /submit_user_word  – Accept a user-supplied word and persist it to the
 """
 
 from flask import Flask, jsonify, render_template, request
+import requests
 
 from word_sort import word_sorting
 
@@ -169,24 +170,34 @@ def submit_guess():
     return jsonify(response)
 
 
+import requests  # add this at the top with other imports
+
 @app.route("/submit_user_word", methods=["POST"])
 def submit_user_word():
-    """
-    Persist a user-supplied word to the word database.
-
-    Expected JSON body
-    ------------------
-    { "word": "<five-letter word>" }
-
-    Returns
-    -------
-    JSON response with ``success`` (bool) and an optional ``message`` string.
-    """
     data = request.get_json()
     user_word: str = data.get("word", "").strip().lower()
 
     if len(user_word) != 5:
         return jsonify({"success": False, "message": "Word must be 5 letters long."})
+
+    # ── Dictionary check ──────────────────────────────────────────────────
+    try:
+        dict_response = requests.get(
+            f"https://api.dictionaryapi.dev/api/v2/entries/en/{user_word}",
+            timeout=5
+        )
+        if dict_response.status_code == 404:
+            return jsonify({
+                "success": False,
+                "message": f'"{user_word.upper()}" is not a valid English word.'
+            })
+    except requests.RequestException:
+        # If the API is unreachable, fail safely and warn the user.
+        return jsonify({
+            "success": False,
+            "message": "Could not verify word — please check your internet connection."
+        })
+    # ─────────────────────────────────────────────────────────────────────
 
     try:
         with open("words.txt", "r") as file:
