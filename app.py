@@ -138,6 +138,9 @@ def submit_guess():
             gray_list, green_dict, orange_dict, sorted_list
         )
 
+        # Remove that given guess so it does not repeat in future
+        sorted_list.remove(next_word)
+        
         if next_word == "Not available in db":
             response = {
                 "result": (
@@ -167,7 +170,9 @@ def submit_guess():
         "all_green": False,
         "show_user_input": True,
     }
+
     return jsonify(response)
+
 
 
 import requests  # add this at the top with other imports
