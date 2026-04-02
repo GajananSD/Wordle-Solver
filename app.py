@@ -139,7 +139,8 @@ def submit_guess():
         )
 
         # Remove that given guess so it does not repeat in future
-        sorted_list.remove(next_word)
+        if sorted_list:
+            sorted_list.remove(next_word)
         
         if next_word == "Not available in db":
             response = {
